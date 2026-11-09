@@ -18,6 +18,8 @@ Apply a migration only once to a local database. The development preview uses th
 
 Set `OPENAI_API_KEY` as a secret in Sites, then redeploy. For local development put it in ignored `.dev.vars`. Never put it in browser code or Git. `OPENAI_MODEL` optionally overrides the default `gpt-5.6-terra` model. Model access and billing must be enabled on the API project.
 
+Set `OPENAI_ORGANIZATION` and `OPENAI_PROJECT` to the IDs selected during key setup to explicitly route requests to the intended billing organization and project. Configure these in Sites and in local `.dev.vars`; they are sent only by the server.
+
 `POST /api/analyze` accepts text and an optional JPEG/PNG/WebP data URL. It calls the Responses API with a strict JSON schema, validates output, asks clarification questions for ambiguous quantities, and returns provisional food portions. Only the user's explicit approval writes food to the diary. Photos are not stored by the application. `store: false` is passed to OpenAI; provider retention policies still apply.
 
 Voice input uses browser speech recognition in supported browsers; the resulting editable transcript is sent to the same AI endpoint. Browser voice availability and its speech service depend on the browser. Keyboard dictation and typing are the fallback. Live microphone capture and live OpenAI responses require separate end-to-end validation after credentials are configured.

@@ -63,6 +63,12 @@ export async function POST(request: Request) {
       headers: {
         Authorization: `Bearer ${env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
+        ...(env.OPENAI_ORGANIZATION
+          ? { "OpenAI-Organization": env.OPENAI_ORGANIZATION }
+          : {}),
+        ...(env.OPENAI_PROJECT
+          ? { "OpenAI-Project": env.OPENAI_PROJECT }
+          : {}),
       },
       signal: AbortSignal.timeout(45000),
       body: JSON.stringify({
