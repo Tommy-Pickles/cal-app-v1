@@ -49,3 +49,11 @@ The tests cover nutrition scaling, recipe servings and cooked-weight portions, k
 ## Next iterations
 
 A larger verified food catalogue, barcode scanning, editing logged meals, and native mobile packaging are natural extensions. The web manifest supports a standalone launch experience, but this version does not cache the app for offline use. AI credentials and live photo/voice verification remain required before calling the AI features production-ready.
+
+## Products, saved meals and images
+
+Food search combines the starter foods and private saved foods with on-demand Australian product search from Open Food Facts. Press Search or Enter for branded products; lookup also accepts a barcode. Retailer filters use community shop/brand tags, which can be incomplete. This is not a complete Woolworths, Coles or Aldi catalogue. Missing nutrition is never filled with zero: use a label photo instead. Product details retain an Open Food Facts link. Database contents are used under ODbL / Database Contents License; see https://world.openfoodfacts.org and https://opendatacommons.org/licenses/odbl/1-0/. No product images or bulk dataset are copied.
+
+A nutrition-label image is transcribed separately from meal estimation. Users review/edit all four nutrition values and the product name before saving it privately to their account. Saved products work in food and recipe search. Users can save a product without adding a diary entry. Images may be selected from the photo library, captured with the camera, or pasted as a screenshot. The browser resizes uploads before sending them to the authenticated AI endpoint; images are not retained.
+
+Meals can be created and edited without logging food, then reused from Meals or the Saved tab in Add Food. Existing accounts gain an empty private foods list without changing their diary.

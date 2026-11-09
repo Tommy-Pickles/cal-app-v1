@@ -1525,3 +1525,21 @@ details[open] > summary {
   font-weight: 500;
   margin: 7px 0;
 }
+
+/* Product lookup and image entry keep secondary controls behind a deliberate action. */
+.product-search-row { display: flex; gap: 8px; align-items: stretch; }
+.product-search-row .search-input { flex: 1; min-width: 0; }
+.product-search-row .secondary { margin: 0; width: 46px; flex: 0 0 46px; padding: 10px; }
+.shop-filter { display: flex; align-items: center; gap: 12px; font-size: 13px; margin-top: 14px; }
+.shop-filter select { flex: 1; margin: 0; }
+.source-note { display: block; color: var(--muted); font-size: 11px; line-height: 1.5; margin: 10px 0; }
+.source-note a, a.source-note { color: var(--accent); }
+.image-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.file-button { position: relative; overflow: hidden; margin: 0; cursor: pointer; min-height: 44px; }
+.file-button input[type=file] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.image-kind { text-align: left; margin: 0 0 16px; }
+.capture-area { padding: 18px 12px; }
+.label-review { border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px; }
+.tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tabs > button { min-width: 0; gap: 5px; }
+@media (max-width: 400px) { .tabs > button { font-size: 12px; padding: 10px 5px; } .tabs > button svg { width: 15px; } }

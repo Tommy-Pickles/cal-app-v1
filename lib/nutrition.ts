@@ -11,6 +11,10 @@ export type Food = Macros & {
   grams: number;
   aliases?: string;
   emoji: string;
+  source?: "openfoodfacts" | "label" | "manual" | "ai";
+  barcode?: string;
+  brand?: string;
+  sourceUrl?: string;
 };
 export type Item = Food & { quantity: number };
 export type Profile = {
@@ -43,12 +47,14 @@ export type State = {
   profile: Profile | null;
   entries: Entry[];
   meals: Meal[];
+  foods: Food[];
   unit: "kcal" | "kJ";
 };
 export const emptyState: State = {
   profile: null,
   entries: [],
   meals: [],
+  foods: [],
   unit: "kcal",
 };
 export const categories = ["Breakfast", "Lunch", "Dinner", "Snack"];

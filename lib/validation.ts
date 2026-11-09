@@ -1,6 +1,6 @@
 import { z } from "zod";
 const n = z.number().finite().min(0).max(100000);
-export const itemSchema = z.object({
+export const foodSchema = z.object({
   id: z.string().max(100),
   name: z.string().min(1).max(200),
   serving: z.string().max(200),
@@ -10,9 +10,13 @@ export const itemSchema = z.object({
   carbs: n,
   fat: n,
   emoji: z.string().max(20),
-  quantity: z.number().finite().positive().max(10000),
-  aliases: z.string().optional(),
+  aliases: z.string().max(1000).optional(),
+  source: z.enum(["openfoodfacts", "label", "manual", "ai"]).optional(),
+  barcode: z.string().regex(/^\d{8,14}$/).optional(),
+  brand: z.string().max(200).optional(),
+  sourceUrl: z.string().url().max(300).refine((url) => /^https:\/\/world\.openfoodfacts\.org\/product\/\d{8,14}$/.test(url)).optional(),
 });
+export const itemSchema = foodSchema.extend({ quantity: z.number().finite().positive().max(10000) });
 const category = z.enum(["Breakfast", "Lunch", "Dinner", "Snack"]);
 export const stateSchema = z.object({
   profile: z
@@ -32,6 +36,7 @@ export const stateSchema = z.object({
         .refine((n) => n === 0 || n >= 1200),
     })
     .nullable(),
+  foods: z.array(foodSchema).max(2000).default([]),
   entries: z
     .array(
       z.object({

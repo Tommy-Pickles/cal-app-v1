@@ -12,7 +12,7 @@ export async function GET() {
     .first<{ data: string; version: number }>();
   return Response.json(
     {
-      state: row ? JSON.parse(row.data) : emptyState,
+      state: row ? { ...emptyState, ...JSON.parse(row.data) } : emptyState,
       version: row?.version ?? 0,
       aiReady: !!env.OPENAI_API_KEY,
     },

@@ -18,6 +18,8 @@ import {
   ChefHat,
   ArrowRight,
   Download,
+  ImagePlus,
+  Pencil,
 } from "lucide-react";
 import {
   categories,
@@ -33,11 +35,13 @@ import {
   total,
   validQuantity,
   portionLabel,
+  type Food,
   type Item,
   type Meal,
   type Profile,
   type State,
 } from "../lib/nutrition";
+import { prepareFoodImage } from "../lib/image-upload";
 const uid = () => crypto.randomUUID();
 const round = (v: number) => Math.round(v * 10) / 10;
 async function api(path: string, options?: RequestInit) {
@@ -63,7 +67,7 @@ export default function HealthApp() {
   useEffect(() => {
     api("/api/state")
       .then((d) => {
-        setData(d.state);
+        setData({ ...emptyState, ...d.state });
         setVersion(d.version);
         setAiReady(d.aiReady);
         if (!d.state.profile) setModal("profile");
@@ -127,9 +131,11 @@ export default function HealthApp() {
     category: string,
     name: string,
     saveMeal: boolean,
+    saveProducts = false,
   ) {
     const next = {
       ...data,
+      foods: saveProducts ? mergeFoods(data.foods, items) : data.foods,
       entries: [...data.entries, { id: uid(), date, category, name, items }],
     };
     if (await commit(next)) {
@@ -168,8 +174,8 @@ export default function HealthApp() {
         <button
           className="mobile-add"
           disabled={!loaded}
-          aria-label={view === "Recipes" ? "Create recipe" : "Add food"}
-          onClick={() => (view === "Recipes" ? setModal("recipe") : openFood())}
+          aria-label={view === "Recipes" ? "Create recipe" : view === "My meals" ? "Create meal" : "Add food"}
+          onClick={() => { setPendingMeal(null); view === "Recipes" ? setModal("recipe") : view === "My meals" ? setModal("createMeal") : openFood(); }}
         >
           <Plus size={26} />
         </button>
@@ -223,11 +229,11 @@ export default function HealthApp() {
                 <button
                   className="primary desktop-add"
                   onClick={() =>
-                    view === "Recipes" ? setModal("recipe") : openFood()
+                    view === "Recipes" ? setModal("recipe") : view === "My meals" ? (setPendingMeal(null), setModal("createMeal")) : openFood()
                   }
                 >
                   <Plus size={19} />
-                  {view === "Recipes" ? "New recipe" : "Add food"}
+                  {view === "Recipes" ? "New recipe" : view === "My meals" ? "New meal" : "Add food"}
                 </button>
               </div>
               {view === "Today" ? (
@@ -443,6 +449,7 @@ export default function HealthApp() {
                           </button>
                         </div>
                         <p>{meal.items.map((i) => i.name).join(", ")}</p>
+                        {!meal.batchGrams && <button className="text-button" onClick={() => { setPendingMeal(meal); setModal("createMeal"); }}><Pencil size={15}/> Edit meal</button>}
                         <div className="serving-note">
                           <span>
                             {meal.batchGrams
@@ -481,16 +488,16 @@ export default function HealthApp() {
                       <p>
                         {view === "Recipes"
                           ? "Add ingredients and the finished batch weight to calculate portions."
-                          : "Save a meal when logging multiple foods."}
+                          : "Create a meal once, then reuse its portions."}
                       </p>
                       <button
                         className="secondary"
                         onClick={() =>
-                          view === "Recipes" ? setModal("recipe") : openFood()
+                          view === "Recipes" ? setModal("recipe") : view === "My meals" ? (setPendingMeal(null), setModal("createMeal")) : openFood()
                         }
                       >
                         <Plus size={18} />
-                        {view === "Recipes" ? "Create recipe" : "Add food"}
+                        {view === "Recipes" ? "Create recipe" : "Create meal"}
                       </button>
                     </div>
                   )}
@@ -537,20 +544,29 @@ export default function HealthApp() {
           />
         </Modal>
       )}
-      {modal === "food" && (
-        <Modal error={error} title="Add food" close={() => setModal("")}>
+      {(modal === "food" || modal === "createMeal") && (
+        <Modal error={error} title={modal === "createMeal" ? pendingMeal ? "Edit meal" : "New meal" : "Add food"} close={() => setModal("")}>
           <FoodForm
-            mode={mode}
+            mode={modal === "createMeal" ? "type" : mode}
+            meals={data.meals}
+            savedFoods={data.foods}
+            initialMeal={modal === "createMeal" ? pendingMeal : null}
+            saveOnly={modal === "createMeal"}
+            onSaveFoods={async items => { if (await commit({ ...data, foods: mergeFoods(data.foods, items) })) { setModal(""); setToast("Saved to your foods"); } }}
             aiReady={aiReady}
             unit={data.unit}
             saving={saving}
-            onAdd={addEntry}
+            onAdd={modal === "createMeal" ? async (items, category, name, _, saveProducts) => {
+              const meal = { id: pendingMeal?.id || uid(), name, category, items };
+              if (await commit({ ...data, foods: saveProducts ? mergeFoods(data.foods, items) : data.foods, meals: pendingMeal ? data.meals.map(m => m.id === pendingMeal.id ? meal : m) : [...data.meals, meal] })) { setModal(""); setPendingMeal(null); setView("My meals"); setToast("Meal saved"); }
+            } : addEntry}
           />
         </Modal>
       )}
       {modal === "recipe" && (
         <Modal error={error} title="New recipe" close={() => setModal("")}>
           <RecipeForm
+            savedFoods={data.foods}
             unit={data.unit}
             saving={saving}
             onSave={async (m) => {
@@ -603,7 +619,7 @@ export default function HealthApp() {
             <p>
               Your diary, goals and saved meals are stored against your
               signed-in account. Photos are sent to OpenAI only when you choose
-              “Estimate meal”; they aren’t saved in your diary.
+              “Review meal” or “Read label”; images aren’t stored in your diary. Your saved products are private to your account.
             </p>
             <h3>Target calculation</h3>
             <p>
@@ -617,6 +633,8 @@ export default function HealthApp() {
               Fat is around 30%; carbohydrate fills the remainder. The high
               option is optional, not a promise of better results.
             </p>
+            <h3>Product data</h3>
+            <p>Supermarket search uses community-contributed <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> data under the <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">Open Database License</a>. Coverage and accuracy vary. Check the pack, or upload its nutrition label.</p>
             <h3>Food values are estimates</h3>
             <p>
               The starter food list uses typical nutrition values. Use your
@@ -902,60 +920,52 @@ function ProfileForm({
     </form>
   );
 }
-function FoodPicker({
-  onPick,
-  unit,
-}: {
-  onPick: (f: Item) => void;
-  unit: string;
+function FoodPicker({ onPick, unit, savedFoods = [], onLabel }: {
+  onPick: (f: Item) => void; unit: string; savedFoods?: Food[]; onLabel?: () => void;
 }) {
-  const [query, setQuery] = useState("");
-  const searchQuery = query.trim();
-  const list = searchQuery ? searchFoods(searchQuery) : [];
-  return (
-    <div className="food-picker">
-      <div className="search-input">
-        <Search size={18} />
-        <input
-          aria-label="Search foods"
-          type="search"
-          autoComplete="off"
-          enterKeyHint="search"
-          placeholder="Search foods"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      {searchQuery && (
-        <div className="suggestions">
-          {list.map((f) => (
-            <button
-              type="button"
-              key={f.id}
-              onClick={() => {
-                onPick({ ...f, id: uid(), quantity: 1 });
-                setQuery("");
-              }}
-            >
-              <span>
-                <strong>{f.name}</strong>
-                <small>
-                  {f.serving} · {energy(f.kcal, unit)}{" "}
-                  {unit === "kcal" ? "cal" : "kJ"}
-                </small>
-              </span>
-              <Plus size={17} />
-            </button>
-          ))}
-          {!list.length && (
-            <p className="hint">
-              No foods found. Enter nutrition manually below.
-            </p>
-          )}
-        </div>
-      )}
+  const [query, setQuery] = useState(""), [products, setProducts] = useState<any[]>([]),
+    [store, setStore] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""),
+    [searched, setSearched] = useState(""), [page, setPage] = useState(1), [more, setMore] = useState(false);
+  const requestId = useRef(0);
+  useEffect(() => () => { requestId.current++; }, []);
+  const q = query.trim();
+  const local = q ? [...savedFoods.filter(f => `${f.name} ${f.brand || ""} ${f.barcode || ""}`.toLowerCase().includes(q.toLowerCase())), ...searchFoods(q)].slice(0, 8) : [];
+  function pick(f: Food) { requestId.current++; onPick({ ...f, id: uid(), quantity: 1 }); setQuery(""); setProducts([]); setSearched(""); setBusy(false); }
+  async function search(nextPage = 1, nextStore = store) {
+    if (q.length < 2) return;
+    const id = ++requestId.current; setBusy(true); setError("");
+    try {
+      const r = await api(`/api/foods?${new URLSearchParams({ q, store: nextStore, page: String(nextPage) })}`);
+      if (id !== requestId.current) return;
+      if (r.food) { pick(r.food); return; }
+      setProducts(current => nextPage === 1 ? r.products : [...current, ...r.products]);
+      setSearched(q); setPage(nextPage); setMore(r.hasMore);
+    } catch (e) { if (id === requestId.current) setError((e as Error).message); }
+    finally { if (id === requestId.current) setBusy(false); }
+  }
+  async function product(code: string) {
+    const id = ++requestId.current; setBusy(true); setError("");
+    try { const r = await api(`/api/foods?code=${encodeURIComponent(code)}`); if (id === requestId.current) pick(r.food); }
+    catch (e) { if (id === requestId.current) setError((e as Error).message); }
+    finally { if (id === requestId.current) setBusy(false); }
+  }
+  return <div className="food-picker">
+    <div className="product-search-row"><div className="search-input"><Search size={18} />
+      <input aria-label="Search foods" type="search" autoComplete="off" enterKeyHint="search" placeholder="Food, brand or barcode" value={query}
+        onChange={e => { requestId.current++; setQuery(e.target.value); setProducts([]); setSearched(""); setError(""); setBusy(false); }}
+        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); search(); } }} />
+      </div><button type="button" className="secondary" disabled={busy || q.length < 2} onClick={() => search()} aria-label="Search products"><Search size={18} /></button>
     </div>
-  );
+    {local.length > 0 && <div className="suggestions">{local.map(f => <button type="button" key={f.id} onClick={() => pick(f)}><span><strong>{f.name}</strong><small>{f.source === "label" || f.source === "manual" ? "My food · " : ""}{f.serving} · {energy(f.kcal, unit)} {unit === "kcal" ? "cal" : "kJ"}</small></span><Plus size={17} /></button>)}</div>}
+    {searched && <label className="shop-filter">Shop<select aria-label="Filter products by shop" value={store} disabled={busy} onChange={e => { setStore(e.target.value); search(1, e.target.value); }}><option value="">All shops</option><option value="woolworths">Woolworths</option><option value="coles">Coles</option><option value="aldi">Aldi</option></select></label>}
+    {busy && <p className="hint" role="status">Looking up products…</p>}
+    {error && <p className="error" role="alert">{error}</p>}
+    {searched && !busy && !products.length && <p className="hint">No matching products. Try the brand, barcode, or add its label.</p>}
+    {products.length > 0 && <div className="suggestions">{products.map(p => <button type="button" key={p.code} disabled={busy} onClick={() => product(p.code)}><span><strong>{p.name}</strong><small>{[p.brand, p.pack].filter(Boolean).join(" · ")}</small></span><Plus size={17}/></button>)}</div>}
+    {more && searched && <button type="button" className="text-button" disabled={busy} onClick={() => search(page + 1)}>More products</button>}
+    {(searched || error) && <p className="source-note">Product data: <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> · <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>. Coverage varies; check the pack.</p>}
+    {(searched || error) && onLabel && <button type="button" className="text-button" onClick={onLabel}><Camera size={16}/> Add a missing product’s label</button>}
+  </div>;
 }
 function ItemEditor({
   items,
@@ -973,8 +983,9 @@ function ItemEditor({
           <div>
             <strong>{f.name}</strong>
             <small>
-              {f.serving} · {f.grams}g per portion
+              {f.serving}{f.grams > 0 && !/^[\d.]+\s*g$/.test(f.serving) ? ` · ${f.grams} g per portion` : ""}
             </small>
+            {f.sourceUrl && <a className="source-note" href={f.sourceUrl} target="_blank" rel="noreferrer">Open Food Facts · check label ↗</a>}
           </div>
           <label>
             Portions
@@ -1007,7 +1018,8 @@ function ItemEditor({
             <X size={16} />
           </button>
           <div className="portion-shortcuts">
-            <span>Or weigh it:</span>
+            {f.grams > 0 && <>
+            <span>Weight:</span>
             <input
               disabled={f.grams <= 0}
               aria-label={`Grams of ${f.name}`}
@@ -1026,10 +1038,10 @@ function ItemEditor({
                   );
               }}
             />
-            <span>g</span>
+            <span>g</span></>}
             {/([0-9.]+)\s*ml/.test(f.serving) && (
               <>
-                <span>or</span>
+                <span>Volume:</span>
                 <input
                   aria-label={`Millilitres of ${f.name}`}
                   type="number"
@@ -1132,6 +1144,7 @@ function CustomFood({ onPick }: { onPick: (f: Item) => void }) {
               fat: +values[3],
               emoji: "🍽️",
               quantity: 1,
+              source: "manual",
             });
             setName("");
             setValues(["", "", "", ""]);
@@ -1144,22 +1157,15 @@ function CustomFood({ onPick }: { onPick: (f: Item) => void }) {
     </details>
   );
 }
-function FoodForm({
-  mode,
-  unit,
-  aiReady,
-  saving,
-  onAdd,
-}: {
-  mode: string;
-  unit: string;
-  aiReady: boolean;
-  saving: boolean;
-  onAdd: (i: Item[], c: string, n: string, s: boolean) => void;
+function FoodForm({ mode, unit, aiReady, saving, onAdd, meals, savedFoods, initialMeal, saveOnly = false, onSaveFoods }: {
+  mode: string; unit: string; aiReady: boolean; saving: boolean;
+  onAdd: (i: Item[], c: string, n: string, s: boolean, saveProducts?: boolean) => void;
+  meals: Meal[]; savedFoods: Food[]; initialMeal?: Meal | null; saveOnly?: boolean;
+  onSaveFoods: (items: Item[]) => Promise<void>;
 }) {
   const [tab, setTab] = useState(mode.split(":")[0]),
-    [items, setItems] = useState<Item[]>([]),
-    [category, setCategory] = useState(mode.split(":")[1] || "Breakfast"),
+    [items, setItems] = useState<Item[]>(initialMeal?.items || []),
+    [category, setCategory] = useState(initialMeal?.category || mode.split(":")[1] || "Breakfast"),
     [text, setText] = useState(""),
     [image, setImage] = useState(""),
     [busy, setBusy] = useState(false),
@@ -1167,34 +1173,50 @@ function FoodForm({
     [note, setNote] = useState(""),
     [questions, setQuestions] = useState<string[]>([]),
     [answer, setAnswer] = useState(""),
-    [saveMeal, setSaveMeal] = useState(true),
+    [saveMeal, setSaveMeal] = useState(false),
     [listening, setListening] = useState(false),
-    [adding, setAdding] = useState(false);
+    [adding, setAdding] = useState(false),
+    [imageKind, setImageKind] = useState("meal"),
+    [imageLoading, setImageLoading] = useState(false),
+    [saveProducts, setSaveProducts] = useState(true),
+    [mealName, setMealName] = useState(initialMeal?.name || ""),
+    [mealQuery, setMealQuery] = useState("");
+  const imageRequest = useRef(0);
+  async function upload(file?: File) {
+    if (!file) return;
+    const id = ++imageRequest.current; setImageLoading(true); setError(""); setImage(""); setNote("");
+    try { const result = await prepareFoodImage(file); if (id === imageRequest.current) { setImage(result); setTab("photo"); } }
+    catch (e) { if (id === imageRequest.current) setError((e as Error).message); }
+    finally { if (id === imageRequest.current) setImageLoading(false); }
+  }
   const showEntry = items.length === 0 || adding;
   function pickFood(food: Item) {
     setItems((current) => [...current, food]);
     setAdding(false);
   }
   const speech = useRef<any>(null);
+  const aiBase = useRef<Item[]>([]);
+  const aiEstimate = useRef<Item[]>([]);
   useEffect(() => () => speech.current?.abort(), []);
   async function analyse() {
     setBusy(true);
     setError("");
+    if (!answer.trim()) aiBase.current = adding ? items : [];
     try {
       const r = await api("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: answer
-            ? `${text}\nPrevious estimate: ${JSON.stringify(items)}\nClarification: ${answer}`
+            ? `${text}\nPrevious estimate: ${JSON.stringify(aiEstimate.current)}\nClarification: ${answer}`
             : text,
-          image: image || undefined,
+          image: tab === "photo" ? image || undefined : undefined,
+          kind: tab === "photo" ? imageKind : "meal",
         }),
       });
       if (r.items.length) {
-        setItems((current) =>
-          adding && !answer.trim() ? [...current, ...r.items] : r.items,
-        );
+        aiEstimate.current = r.items;
+        setItems([...aiBase.current, ...r.items]);
         setAdding(false);
       }
       setNote(r.note);
@@ -1249,16 +1271,21 @@ function FoodForm({
     }
   }
   return (
-    <div>
+    <div onPaste={e => {
+      const file = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"))?.getAsFile();
+      if (file && !busy && !saving) { e.preventDefault(); setAdding(items.length > 0); upload(file); }
+    }}>
       {showEntry && (
         <>
           <div className="tabs">
             {[
               { id: "type", icon: Search, label: "Type" },
-              { id: "photo", icon: Camera, label: "Photo" },
+              { id: "photo", icon: ImagePlus, label: "Image" },
               { id: "voice", icon: Mic, label: "Voice" },
+              { id: "saved", icon: BookOpen, label: "Saved" },
             ].map((t) => (
               <button
+                disabled={busy || imageLoading}
                 aria-pressed={tab === t.id}
                 key={t.id}
                 className={tab === t.id ? "active" : ""}
@@ -1274,7 +1301,7 @@ function FoodForm({
           </div>
           {tab === "type" ? (
             <>
-              <FoodPicker unit={unit} onPick={pickFood} />
+              <FoodPicker unit={unit} savedFoods={savedFoods} onPick={pickFood} onLabel={() => { setImageKind("label"); setTab("photo"); }} />
               <details>
                 <summary>Describe a whole meal with AI</summary>
                 <textarea
@@ -1293,56 +1320,35 @@ function FoodForm({
                 </button>
               </details>
             </>
+          ) : tab === "saved" ? (
+            <div>
+              <input aria-label="Find saved meals" placeholder="Find a saved meal" value={mealQuery} onChange={e => setMealQuery(e.target.value)} />
+              <div className="suggestions">{meals.filter(m => m.name.toLowerCase().includes(mealQuery.toLowerCase())).map(m => <button key={m.id} type="button" onClick={() => {
+                const portions = m.batchGrams ? [recipeItem(m, 1, "serving")] : m.items.map(i => ({ ...i, id: uid() }));
+                if (!items.length) setCategory(m.category);
+                setItems(current => [...current, ...portions]); setAdding(false); setSaveMeal(false);
+              }}><span><strong>{m.name}</strong><small>{m.batchGrams ? `1 serving · ${Math.round(m.batchGrams / (m.servings || 1))} g` : "Saved portions"} · {energy(total(m.items).kcal / (m.servings || 1), unit)} {unit === "kcal" ? "cal" : "kJ"}</small></span><Plus size={17}/></button>)}</div>
+              {!meals.length && <p className="hint">Create a meal in Meals, or save one when adding food.</p>}
+              {!!meals.length && !meals.some(m => m.name.toLowerCase().includes(mealQuery.toLowerCase())) && <p className="hint">No matching saved meals.</p>}
+            </div>
           ) : (
             <>
               <div className="capture-area">
                 {tab === "photo" ? (
                   <>
-                    <Camera size={32} />
-                    <h3>Meal photo</h3>
-                    <p>
-                      We’ll estimate the ingredients and portions.
-                      <br />
-                      You’ll check everything before it’s logged.
-                    </p>
-                    <input
-                      aria-label="Choose meal photo"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      capture="environment"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (!f) return;
-                        setImage("");
-                        setError("");
-                        if (
-                          !["image/jpeg", "image/png", "image/webp"].includes(
-                            f.type,
-                          )
-                        ) {
-                          setError("Choose a JPEG, PNG or WebP photo.");
-                          return;
-                        }
-                        if (f.size > 5000000) {
-                          setError("Please choose a photo under 5 MB.");
-                          return;
-                        }
-                        const reader = new FileReader();
-                        reader.onload = () => setImage(reader.result as string);
-                        reader.onerror = () =>
-                          setError(
-                            "Could not read this photo. Choose another image.",
-                          );
-                        reader.readAsDataURL(f);
-                      }}
-                    />
-                    {image && (
-                      <img
-                        className="photo-preview"
-                        src={image}
-                        alt="Your meal to review"
-                      />
-                    )}
+                    <label className="image-kind">Image contains
+                      <select aria-label="Image contents" value={imageKind} onChange={e => { setImageKind(e.target.value); setNote(""); }} disabled={busy}>
+                        <option value="meal">Meal or screenshot</option><option value="label">Product nutrition label</option>
+                      </select>
+                    </label>
+                    {!image && <p>{imageKind === "label" ? "Include the product name, nutrition panel and serving size." : "Choose a meal photo, recipe screenshot or nutrition summary."}</p>}
+                    <div className="image-actions">
+                      <label className="secondary file-button"><ImagePlus size={18}/> Choose image<input aria-label="Choose image or screenshot" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || imageLoading} onChange={e => { upload(e.target.files?.[0]); e.target.value = ""; }} /></label>
+                      <label className="secondary file-button"><Camera size={18}/> Camera<input aria-label="Take a photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy || imageLoading} onChange={e => { upload(e.target.files?.[0]); e.target.value = ""; }} /></label>
+                    </div>
+                    {imageLoading && <p role="status">Preparing image…</p>}
+                    {image && <><img className="photo-preview" src={image} alt="Image selected for review"/><button className="text-button" disabled={busy} onClick={() => { imageRequest.current++; setImage(""); }}>Remove image</button></>}
+                    <small className="hint">You can also paste a screenshot here.</small>
                   </>
                 ) : (
                   <>
@@ -1366,7 +1372,7 @@ function FoodForm({
                 aria-label="Meal description"
                 placeholder={
                   tab === "photo"
-                    ? "Any extras? Oils, sauces, ingredients or portion clues…"
+                    ? imageKind === "label" ? "Product name or details (optional)" : "Portion or recipe details (optional)"
                     : "Your spoken words will appear here. You can edit them."
                 }
                 value={text}
@@ -1374,11 +1380,11 @@ function FoodForm({
               />
               <button
                 className="secondary full"
-                disabled={busy || (!image && !text.trim())}
+                disabled={busy || imageLoading || (imageKind === "label" && tab === "photo" ? !image : !image && !text.trim())}
                 onClick={analyse}
               >
                 <Sparkles size={17} />
-                {busy ? "Estimating your meal…" : "Estimate meal"}
+                {busy ? "Reading…" : tab === "photo" && imageKind === "label" ? "Read label" : "Review meal"}
               </button>
               {!aiReady && (
                 <p className="hint">
@@ -1387,7 +1393,7 @@ function FoodForm({
               )}
             </>
           )}
-          <CustomFood onPick={pickFood} />
+          {tab === "type" && <CustomFood onPick={pickFood} />}
           {items.length > 0 && (
             <button className="secondary full" onClick={() => setAdding(false)}>
               Back to portions
@@ -1430,7 +1436,9 @@ function FoodForm({
       )}
       {items.length > 0 && !showEntry && (
         <>
-          <h3 className="review-heading">Review portions</h3>
+          <h3 className="review-heading">{items.some(i => i.source === "label") ? "Check label values" : "Review portions"}</h3>
+          {items.some(i => i.source === "label") && <LabelEditor items={items} setItems={setItems} />}
+          {saveOnly && <label>Meal name<input maxLength={200} value={mealName} onChange={e => setMealName(e.target.value)} placeholder="e.g. Breakfast bowl" /></label>}
           <ItemEditor items={items} setItems={setItems} unit={unit} />
           <NutritionSummary items={items} unit={unit} />
         </>
@@ -1447,7 +1455,7 @@ function FoodForm({
       {items.length > 0 && !showEntry && (
         <>
           <label>
-            Add to
+            {saveOnly ? "Meal type" : "Add to"}
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -1457,20 +1465,21 @@ function FoodForm({
               ))}
             </select>
           </label>
-          {items.length > 1 && (
+          {!saveOnly && (
             <label className="check-label">
               <input
                 type="checkbox"
                 checked={saveMeal}
                 onChange={(e) => setSaveMeal(e.target.checked)}
               />{" "}
-              Ask me to save this as a favourite meal
+              Save as a meal
             </label>
           )}
+          {items.some(i => i.source === "label" || i.source === "manual") && <label className="check-label"><input type="checkbox" checked={saveProducts} onChange={e => setSaveProducts(e.target.checked)} />Save products to my foods</label>}
           <button
             className="primary full"
             disabled={
-              !items.length ||
+              !items.length || (saveOnly && !mealName.trim()) || items.some(i => !i.name.trim() || i.name === "Unnamed product") ||
               items.some((f) => !validQuantity(f.quantity)) ||
               saving ||
               busy
@@ -1479,23 +1488,40 @@ function FoodForm({
               onAdd(
                 items,
                 category,
-                items.length === 1
+                saveOnly ? mealName.trim() : items.length === 1
                   ? items[0].name
                   : items
                       .map((i) => i.name)
                       .join(", ")
                       .slice(0, 200),
-                items.length > 1 && saveMeal,
+                !saveOnly && saveMeal,
+                saveProducts && items.some(i => i.source === "label" || i.source === "manual"),
               )
             }
           >
             <Check size={17} />
-            {saving ? "Saving…" : "Add to diary"}
+            {saving ? "Saving…" : saveOnly ? "Save meal" : "Add to diary"}
           </button>
+          {!saveOnly && items.some(i => i.source === "label" || i.source === "manual") && <button className="secondary full" disabled={saving || busy || items.some(i => !i.name.trim() || i.name === "Unnamed product" || !validQuantity(i.quantity))} onClick={() => onSaveFoods(items)}>Save products without logging</button>}
         </>
       )}
     </div>
   );
+}
+function mergeFoods(existing: Food[], items: Item[]): Food[] {
+  const saved = new Map(existing.map(f => [f.barcode || f.name.toLowerCase(), f]));
+  for (const { quantity, ...food } of items) {
+    if (food.source === "label" || food.source === "manual") saved.set(food.barcode || food.name.toLowerCase(), food);
+  }
+  return [...saved.values()];
+}
+function LabelEditor({ items, setItems }: { items: Item[]; setItems: (items: Item[]) => void }) {
+  function update(index: number, patch: Partial<Item>) { setItems(items.map((item, i) => i === index ? { ...item, ...patch } : item)); }
+  return <div className="label-review">{items.map((item, index) => item.source !== "label" ? null : <div key={item.id}>
+    <label>Product name<input value={item.name} maxLength={200} onChange={e => update(index, { name: e.target.value })}/></label>
+    <p className="hint">Values below are for {item.serving}. Check against the pack before saving.</p>
+    <div className="form-grid four">{(["kcal", "protein", "carbs", "fat"] as const).map((key, i) => <label key={key}>{["Calories", "Protein (g)", "Carbs (g)", "Fat (g)"][i]}<input type="number" min="0" max="100000" step="any" aria-label={`Label ${key}`} value={item[key]} onChange={e => update(index, { [key]: Math.max(0, Math.min(100000, Number(e.target.value) || 0)) })}/></label>)}</div>
+  </div>)}</div>;
 }
 function NutritionSummary({ items, unit }: { items: Item[]; unit: string }) {
   const t = total(items);
@@ -1517,6 +1543,7 @@ function NutritionSummary({ items, unit }: { items: Item[]; unit: string }) {
   );
 }
 function RecipeForm({
+  savedFoods,
   unit,
   saving,
   onSave,
@@ -1524,6 +1551,7 @@ function RecipeForm({
   unit: string;
   saving: boolean;
   onSave: (m: Meal) => void;
+  savedFoods: Food[];
 }) {
   const [items, setItems] = useState<Item[]>([]),
     [name, setName] = useState(""),
@@ -1565,7 +1593,7 @@ function RecipeForm({
           onChange={(e) => setName(e.target.value)}
         />
       </label>
-      <FoodPicker unit={unit} onPick={(f) => setItems([...items, f])} />
+      <FoodPicker unit={unit} savedFoods={savedFoods} onPick={(f) => setItems([...items, f])} />
       <CustomFood onPick={(f) => setItems([...items, f])} />
       <ItemEditor items={items} setItems={setItems} unit={unit} />
       <div className="form-grid">
