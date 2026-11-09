@@ -1,0 +1,16 @@
+{
+  "name": "Hawkes Health Helper",
+  "short_name": "Hawkes Health",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f3f7",
+  "theme_color": "#f3f3f7",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
