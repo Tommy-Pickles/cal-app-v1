@@ -16,6 +16,28 @@ test("liquid nutrition uses millilitres without assuming a gram density", () => 
   assert.equal(food.grams, 0); assert.equal(food.serving, "250 ml");
   assert.equal(food.protein, 25);
 });
+test("milk category uses millilitres when the community record omits units", () => {
+  const food = productFood({
+    ...product,
+    product_name: "Almond Milky",
+    serving_size: undefined,
+    quantity: undefined,
+    categories_tags: ["en:dairies", "en:milks"],
+  })!;
+  assert.equal(food.grams, 0);
+  assert.equal(food.serving, "100 ml");
+});
+test("milk chocolate remains a solid when it is not classified as a drink", () => {
+  const food = productFood({
+    ...product,
+    product_name: "Milk chocolate",
+    serving_size: undefined,
+    quantity: "100 g",
+    categories_tags: ["en:chocolates", "en:milk-chocolates"],
+  })!;
+  assert.equal(food.grams, 100);
+  assert.equal(food.serving, "100 g");
+});
 test("missing and implausible nutrients are rejected rather than guessed", () => {
   assert.equal(productFood({ ...product, nutriments: { ...product.nutriments, proteins_100g: undefined } }), null);
   assert.equal(productFood({ ...product, nutriments: { ...product.nutriments, proteins_100g: "" } }), null);

@@ -18,8 +18,17 @@ export function productFood(p: Record<string, any>): Food | null {
       kcal > 1000 || protein > 100 || carbs > 100 || fat > 100) return null;
   const serving = text(p.serving_size).toLowerCase();
   const measure = serving.match(/(?:^|[ (])(\d+(?:\.\d+)?)\s*(ml|g)\b/);
+  const categories = Array.isArray(p.categories_tags)
+    ? p.categories_tags.map(String)
+    : [];
+  const liquidCategory = categories.some((tag) =>
+    /(?:^|:)(?:beverages?|.*-drinks?|milks?|plant-based-beverages?|plant-based-milk-alternatives)$/.test(
+      tag.toLowerCase(),
+    ),
+  );
   const liquid = p.product_quantity_unit === "ml" || p.serving_quantity_unit === "ml" ||
-    p.nutrition_data_per === "100ml" || /\b\d+(?:\.\d+)?\s*(?:ml|l)\b/i.test(text(p.quantity)) || measure?.[2] === "ml";
+    p.nutrition_data_per === "100ml" || /\b\d+(?:\.\d+)?\s*(?:ml|l)\b/i.test(text(p.quantity)) ||
+    measure?.[2] === "ml" || liquidCategory;
   const unit = liquid ? "ml" : "g";
   const amount = measure && measure[2] === unit && +measure[1] > 0 && +measure[1] <= 2000 ? +measure[1] : 100;
   const brand = text(p.brands).trim().slice(0, 200);

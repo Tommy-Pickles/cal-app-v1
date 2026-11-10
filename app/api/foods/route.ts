@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   try {
     let url: string;
     if (code) {
-      const fields = "code,product_name,product_name_en,brands,nutriments,serving_size,serving_quantity_unit,product_quantity_unit,quantity,nutrition_data_per";
+      const fields = "code,product_name,product_name_en,brands,nutriments,serving_size,serving_quantity_unit,product_quantity_unit,quantity,nutrition_data_per,categories_tags";
       url = `https://world.openfoodfacts.org/api/v3/product/${code}?fields=${fields}`;
     } else {
       const p = new URLSearchParams({ q: productQuery(query, store), langs: "en", page_size: "20", page: String(page), fields: "code,product_name,brands,quantity" });
