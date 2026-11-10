@@ -16,7 +16,7 @@ test("liquid nutrition uses millilitres without assuming a gram density", () => 
   assert.equal(food.grams, 0); assert.equal(food.serving, "250 ml");
   assert.equal(food.protein, 25);
 });
-test("milk category uses millilitres when the community record omits units", () => {
+test("milk category uses a practical millilitre serving when units are missing", () => {
   const food = productFood({
     ...product,
     product_name: "Almond Milky",
@@ -25,7 +25,19 @@ test("milk category uses millilitres when the community record omits units", () 
     categories_tags: ["en:dairies", "en:milks"],
   })!;
   assert.equal(food.grams, 0);
-  assert.equal(food.serving, "100 ml");
+  assert.equal(food.serving, "250 ml");
+});
+test("single-serve drinks default to the package volume", () => {
+  const food = productFood({
+    ...product,
+    product_name: "Boss Iced Double Espresso",
+    serving_size: "100 ml",
+    quantity: "237 ml",
+    product_quantity_unit: "ml",
+    categories_tags: ["en:beverages"],
+  })!;
+  assert.equal(food.serving, "237 ml");
+  assert.equal(food.grams, 0);
 });
 test("milk chocolate remains a solid when it is not classified as a drink", () => {
   const food = productFood({

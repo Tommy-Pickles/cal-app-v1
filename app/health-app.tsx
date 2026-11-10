@@ -20,6 +20,7 @@ import {
   Download,
   ImagePlus,
   Pencil,
+  ChevronDown,
 } from "lucide-react";
 import {
   categories,
@@ -382,37 +383,41 @@ export default function HealthApp() {
                                 <Plus size={19} />
                               </button>
                             </div>
-                            {rows.map((entry) => (
-                              <div className="food-row" key={entry.id}>
-                                <div className="food-detail">
-                                  <strong>{entry.name}</strong>
-                                  <small>
-                                    {entry.items.map(portionLabel).join(" · ")}
-                                  </small>
-                                </div>
-                                <strong className="food-energy">
-                                  {energy(total(entry.items).kcal, data.unit)}
-                                </strong>
-                                <button
-                                  className="icon-button delete"
-                                  disabled={saving}
-                                  aria-label={`Remove ${entry.name}`}
-                                  onClick={async () => {
-                                    if (
-                                      await commit({
-                                        ...data,
-                                        entries: data.entries.filter(
-                                          (e) => e.id !== entry.id,
-                                        ),
-                                      })
-                                    )
-                                      setToast("Food removed");
-                                  }}
-                                >
-                                  <Trash2 size={17} />
-                                </button>
-                              </div>
-                            ))}
+                            {rows.map((entry) => {
+                              const nutrition = total(entry.items);
+                              return (
+                                <details className="food-row" key={entry.id}>
+                                  <summary>
+                                    <div className="food-detail">
+                                      <strong>{entry.name}</strong>
+                                      <span className="meal-macros">
+                                        P {Math.round(nutrition.protein)} · C {Math.round(nutrition.carbs)} · F {Math.round(nutrition.fat)} g
+                                      </span>
+                                    </div>
+                                    <strong className="food-energy">
+                                      {energy(nutrition.kcal, data.unit)}
+                                      <small>{data.unit === "kcal" ? " cal" : " kJ"}</small>
+                                    </strong>
+                                    <ChevronDown className="food-chevron" size={17} />
+                                  </summary>
+                                  <div className="food-more">
+                                    <span>{entry.items.map(portionLabel).join(" · ")}</span>
+                                    <button
+                                      className="remove-food"
+                                      disabled={saving}
+                                      onClick={async () => {
+                                        if (await commit({
+                                          ...data,
+                                          entries: data.entries.filter((e) => e.id !== entry.id),
+                                        })) setToast("Food removed");
+                                      }}
+                                    >
+                                      <Trash2 size={15} /> Remove
+                                    </button>
+                                  </div>
+                                </details>
+                              );
+                            })}
                           </section>
                         );
                       })}
@@ -1175,6 +1180,7 @@ function FoodForm({ mode, unit, aiReady, saving, onAdd, meals, savedFoods, initi
     [answer, setAnswer] = useState(""),
     [saveMeal, setSaveMeal] = useState(false),
     [listening, setListening] = useState(false),
+    [interimText, setInterimText] = useState(""),
     [adding, setAdding] = useState(false),
     [imageKind, setImageKind] = useState("meal"),
     [imageLoading, setImageLoading] = useState(false),
@@ -1248,20 +1254,26 @@ function FoodForm({ mode, unit, aiReady, saving, onAdd, meals, savedFoods, initi
     speech.current = r;
     r.lang = "en-AU";
     r.continuous = true;
-    r.interimResults = false;
+    r.interimResults = true;
     r.onresult = (e: any) => {
-      let words = "";
-      for (let i = e.resultIndex; i < e.results.length; i++)
-        words += e.results[i][0].transcript + " ";
-      setText((t) => t + " " + words);
+      let finalWords = "";
+      let draft = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const words = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalWords += words + " ";
+        else draft += words + " ";
+      }
+      if (finalWords) setText((current) => `${current} ${finalWords}`.trim());
+      setInterimText(draft.trim());
     };
     r.onerror = () => {
       setError(
         "Microphone unavailable. Check permission, or type your meal below.",
       );
       setListening(false);
+      setInterimText("");
     };
-    r.onend = () => setListening(false);
+    r.onend = () => { setListening(false); setInterimText(""); };
     try {
       r.start();
       setListening(true);
@@ -1358,10 +1370,17 @@ function FoodForm({ mode, unit, aiReady, saving, onAdd, meals, savedFoods, initi
                     <button
                       className={listening ? "primary recording" : "primary"}
                       onClick={record}
+                      aria-pressed={listening}
                     >
                       <Mic size={17} />
                       {listening ? "Stop recording" : "Start recording"}
                     </button>
+                    {listening && (
+                      <div className="voice-live" role="status" aria-live="polite">
+                        <span><i /> Listening</span>
+                        <p>{interimText || "Speak now…"}</p>
+                      </div>
+                    )}
                     <p className="hint">
                       Your browser handles dictation; review the text below.
                     </p>

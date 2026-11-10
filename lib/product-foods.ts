@@ -5,6 +5,16 @@ const number = (v: unknown): number | null =>
   Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null;
 const text = (v: unknown) => typeof v === "string" ? v : Array.isArray(v) ? v.join(", ") : "";
 
+function measure(value: unknown): { amount: number; unit: "ml" | "g" } | null {
+  const match = text(value).match(/(?:^|[ (x×])([0-9]+(?:\.[0-9]+)?)\s*(ml|l|g|kg)\b/i);
+  if (!match) return null;
+  const raw = Number(match[1]);
+  if (!Number.isFinite(raw) || raw <= 0) return null;
+  const sourceUnit = match[2].toLowerCase();
+  const amount = raw * (sourceUnit === "l" || sourceUnit === "kg" ? 1000 : 1);
+  return { amount, unit: sourceUnit === "ml" || sourceUnit === "l" ? "ml" : "g" };
+}
+
 export function productFood(p: Record<string, any>): Food | null {
   const barcode = String(p.code || "");
   const name = text(p.product_name_en || p.product_name).trim();
@@ -16,8 +26,14 @@ export function productFood(p: Record<string, any>): Food | null {
   // Missing label values are unknown, never zero. Reject implausible per-100 values.
   if (kcal === null || protein === null || carbs === null || fat === null ||
       kcal > 1000 || protein > 100 || carbs > 100 || fat > 100) return null;
-  const serving = text(p.serving_size).toLowerCase();
-  const measure = serving.match(/(?:^|[ (])(\d+(?:\.\d+)?)\s*(ml|g)\b/);
+  const labelledServing = measure(p.serving_size) ||
+    (number(p.serving_quantity) && ["ml", "g"].includes(text(p.serving_quantity_unit).toLowerCase())
+      ? { amount: number(p.serving_quantity)!, unit: text(p.serving_quantity_unit).toLowerCase() as "ml" | "g" }
+      : null);
+  const packageSize = measure(p.quantity) ||
+    (number(p.product_quantity) && ["ml", "g"].includes(text(p.product_quantity_unit).toLowerCase())
+      ? { amount: number(p.product_quantity)!, unit: text(p.product_quantity_unit).toLowerCase() as "ml" | "g" }
+      : null);
   const categories = Array.isArray(p.categories_tags)
     ? p.categories_tags.map(String)
     : [];
@@ -28,9 +44,21 @@ export function productFood(p: Record<string, any>): Food | null {
   );
   const liquid = p.product_quantity_unit === "ml" || p.serving_quantity_unit === "ml" ||
     p.nutrition_data_per === "100ml" || /\b\d+(?:\.\d+)?\s*(?:ml|l)\b/i.test(text(p.quantity)) ||
-    measure?.[2] === "ml" || liquidCategory;
+    labelledServing?.unit === "ml" || liquidCategory;
   const unit = liquid ? "ml" : "g";
-  const amount = measure && measure[2] === unit && +measure[1] > 0 && +measure[1] <= 2000 ? +measure[1] : 100;
+  const explicitAmount = labelledServing?.unit === unit && labelledServing.amount <= 2000
+    ? labelledServing.amount
+    : null;
+  const packAmount = packageSize?.unit === unit && packageSize.amount <= 2000
+    ? packageSize.amount
+    : null;
+  // Use the whole can or bottle for single-serve drinks. Larger cartons use a
+  // practical glass-sized default when no useful serving is available.
+  const amount = liquid
+    ? packAmount && packAmount <= 500 && (!explicitAmount || explicitAmount === 100)
+      ? packAmount
+      : explicitAmount || 250
+    : explicitAmount || 100;
   const brand = text(p.brands).trim().slice(0, 200);
   return {
     id: `off-${barcode}`, name: (brand && !name.toLowerCase().includes(brand.toLowerCase()) ? `${brand} ${name}` : name).slice(0, 200),
