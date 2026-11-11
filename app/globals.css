@@ -1025,6 +1025,22 @@ details[open] > summary {
   text-align: center;
   color: #74747d;
 }
+.voice-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  border-radius: 50%;
+  color: var(--accent);
+  background: #fff;
+  box-shadow: 0 1px 8px #0000000d;
+}
+.voice-icon.is-listening {
+  color: #fff;
+  background: #e04343;
+  box-shadow: 0 0 0 7px #e0434318;
+}
 .capture-area h3 {
   font-size: 18px;
   margin: 14px 0 9px;
@@ -1098,6 +1114,34 @@ details[open] > summary {
   font-size: 13px;
   color: var(--muted);
   margin: 0;
+}
+.recipe-step {
+  margin: 22px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.recipe-step h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 7px;
+  font-size: 16px;
+}
+.recipe-step h3 > span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--accent);
+  background: #eaf2ff;
+  font-size: 12px;
+}
+.recipe-step > p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 .error {
   display: flex;
@@ -1623,10 +1667,12 @@ details[open] > summary {
   100% { box-shadow: 0 0 0 0 #ff3b3000; }
 }
 .source-note a, a.source-note { color: var(--accent); }
-.image-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .file-button { position: relative; overflow: hidden; margin: 0; cursor: pointer; min-height: 44px; }
 .file-button input[type=file] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
-.image-kind { text-align: left; margin: 0 0 16px; }
+.image-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; width: 100%; padding: 3px; margin: 0 0 18px; border-radius: 11px; background: #dedee7; }
+.image-kind button { min-height: 38px; margin: 0; padding: 8px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 500; box-shadow: none; }
+.image-kind button[aria-pressed="true"] { color: var(--ink); background: #fff; box-shadow: 0 1px 5px #00000012; }
+.image-picker { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; max-width: 330px; }
 .capture-area { padding: 18px 12px; }
 .label-review { border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px; }
 .tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }

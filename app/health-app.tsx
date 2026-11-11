@@ -1322,8 +1322,8 @@ function FoodForm({ mode, unit, aiReady, saving, onAdd, meals, savedFoods, initi
           <div className="tabs">
             {[
               { id: "type", icon: Search, label: "Type" },
-              { id: "photo", icon: ImagePlus, label: "Image" },
-              { id: "voice", icon: Mic, label: "Voice" },
+              { id: "photo", icon: ImagePlus, label: "Photo" },
+              { id: "voice", icon: Mic, label: "Speak" },
               { id: "saved", icon: BookOpen, label: "Saved" },
             ].map((t) => (
               <button
@@ -1378,42 +1378,32 @@ function FoodForm({ mode, unit, aiReady, saving, onAdd, meals, savedFoods, initi
               <div className="capture-area">
                 {tab === "photo" ? (
                   <>
-                    <label className="image-kind">Image contains
-                      <select aria-label="Image contents" value={imageKind} onChange={e => { setImageKind(e.target.value); setNote(""); }} disabled={busy}>
-                        <option value="meal">Meal or screenshot</option><option value="label">Product nutrition label</option>
-                      </select>
-                    </label>
-                    {!image && <p>{imageKind === "label" ? "Include the product name, nutrition panel and serving size." : "Choose a meal photo, recipe screenshot or nutrition summary."}</p>}
-                    <div className="image-actions">
-                      <label className="secondary file-button"><ImagePlus size={18}/> Choose image<input aria-label="Choose image or screenshot" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || imageLoading} onChange={e => { upload(e.target.files?.[0]); e.target.value = ""; }} /></label>
-                      <label className="secondary file-button"><Camera size={18}/> Camera<input aria-label="Take a photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy || imageLoading} onChange={e => { upload(e.target.files?.[0]); e.target.value = ""; }} /></label>
+                    <div className="image-kind" role="group" aria-label="Image contents">
+                      <button type="button" aria-pressed={imageKind === "meal"} onClick={() => { setImageKind("meal"); setNote(""); }} disabled={busy}>Meal / screenshot</button>
+                      <button type="button" aria-pressed={imageKind === "label"} onClick={() => { setImageKind("label"); setNote(""); }} disabled={busy}>Nutrition label</button>
                     </div>
+                    {!image && <label className="secondary file-button image-picker"><ImagePlus size={18}/> Choose or take photo<input aria-label="Choose or take a photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || imageLoading} onChange={e => { upload(e.target.files?.[0]); e.target.value = ""; }} /></label>}
                     {imageLoading && <p role="status">Preparing image…</p>}
-                    {image && <><img className="photo-preview" src={image} alt="Image selected for review"/><button className="text-button" disabled={busy} onClick={() => { imageRequest.current++; setImage(""); }}>Remove image</button></>}
-                    <small className="hint">You can also paste a screenshot here.</small>
+                    {image && <><img className="photo-preview" src={image} alt="Image selected for review"/><button className="text-button" disabled={busy} onClick={() => { imageRequest.current++; setImage(""); }}>Choose a different image</button></>}
                   </>
                 ) : (
                   <>
-                    <Mic size={32} />
-                    <h3>Dictate a meal</h3>
-                    <p>“I had a banana, some yoghurt and honey.”</p>
+                    <div className={listening ? "voice-icon is-listening" : "voice-icon"}><Mic size={26} /></div>
+                    <h3>{listening ? "Listening…" : "Say what you ate"}</h3>
                     <button
                       className={listening ? "primary recording" : "primary"}
                       onClick={record}
                       aria-pressed={listening}
                     >
                       <Mic size={17} />
-                      {listening ? "Stop recording" : "Start recording"}
+                      {listening ? "Tap to stop" : "Tap to speak"}
                     </button>
                     {listening && (
                       <div className="voice-live" role="status" aria-live="polite">
-                        <span><i /> Listening</span>
-                        <p>{interimText || "Speak now…"}</p>
+                        <span><i /> Recording</span>
+                        <p>{interimText || "Speak naturally — you can edit it below."}</p>
                       </div>
                     )}
-                    <p className="hint">
-                      Your browser handles dictation; review the text below.
-                    </p>
                   </>
                 )}
               </div>
@@ -1628,10 +1618,6 @@ function RecipeForm({
         if (valid) onSave(meal);
       }}
     >
-      <p className="intro">
-        Add everything that went in, including oils and sauces. Weigh the
-        finished food without the container.
-      </p>
       <label>
         Recipe name
         <input
@@ -1642,46 +1628,54 @@ function RecipeForm({
           onChange={(e) => setName(e.target.value)}
         />
       </label>
-      <FoodPicker unit={unit} savedFoods={savedFoods} onPick={(f) => setItems([...items, f])} />
-      <CustomFood onPick={(f) => setItems([...items, f])} />
-      <ItemEditor items={items} setItems={setItems} unit={unit} />
-      <div className="form-grid">
+      <section className="recipe-step">
+        <h3><span>1</span> Add ingredients</h3>
+        <p>Include oils, sauces and anything else that went in.</p>
+        <FoodPicker unit={unit} savedFoods={savedFoods} onPick={(f) => setItems([...items, f])} />
+        <CustomFood onPick={(f) => setItems([...items, f])} />
+        <ItemEditor items={items} setItems={setItems} unit={unit} />
+        {!items.length && <p className="hint">Add an ingredient to continue.</p>}
+      </section>
+      {items.length > 0 && <section className="recipe-step">
+        <h3><span>2</span> Set the finished amount</h3>
+        <p>Weigh the cooked recipe without the container.</p>
+        <div className="form-grid">
+          <label>
+            Finished weight (g)
+            <input
+              required
+              type="number"
+              min="1"
+              max="100000"
+              inputMode="decimal"
+              placeholder="e.g. 1200"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+            />
+          </label>
+          <label>
+            Servings
+            <input
+              required
+              type="number"
+              min="0.1"
+              max="1000"
+              step="0.1"
+              inputMode="decimal"
+              value={servings}
+              onChange={(e) => setServings(e.target.value)}
+            />
+          </label>
+        </div>
         <label>
-          Finished batch weight (g)
-          <input
-            required
-            type="number"
-            min="1"
-            max="100000"
-            placeholder="e.g. 1200"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-          />
+          Meal type
+          <select value={category} onChange={(e) => setCategory(e.target.value)}>
+            {categories.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
         </label>
-        <label>
-          Number of servings
-          <input
-            required
-            type="number"
-            min="0.1"
-            max="1000"
-            step="0.1"
-            value={servings}
-            onChange={(e) => setServings(e.target.value)}
-          />
-        </label>
-      </div>
-      <p className="hint">
-        Use the cooked weight: cooking can add or remove water.
-      </p>
-      <label>
-        Meal type
-        <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          {categories.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-      </label>
+      </section>}
       {valid && (
         <div className="recipe-calculation">
           <h3>One serving = {Math.round(+weight / +servings)} g</h3>
