@@ -930,19 +930,33 @@ function FoodPicker({ onPick, unit, savedFoods = [], onLabel }: {
 }) {
   const [query, setQuery] = useState(""), [products, setProducts] = useState<any[]>([]),
     [store, setStore] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""),
-    [searched, setSearched] = useState(""), [page, setPage] = useState(1), [more, setMore] = useState(false);
+    [searched, setSearched] = useState(""), [page, setPage] = useState(1), [more, setMore] = useState(false),
+    [genericOnly, setGenericOnly] = useState(false);
   const requestId = useRef(0);
   useEffect(() => () => { requestId.current++; }, []);
   const q = query.trim();
-  const local = q ? [...savedFoods.filter(f => `${f.name} ${f.brand || ""} ${f.barcode || ""}`.toLowerCase().includes(q.toLowerCase())), ...searchFoods(q)].slice(0, 8) : [];
-  function pick(f: Food) { requestId.current++; onPick({ ...f, id: uid(), quantity: 1 }); setQuery(""); setProducts([]); setSearched(""); setBusy(false); }
-  async function search(nextPage = 1, nextStore = store) {
+  const generic = q ? searchFoods(q) : [];
+  const savedMatches = q ? savedFoods.filter(f => `${f.name} ${f.brand || ""} ${f.barcode || ""}`.toLowerCase().includes(q.toLowerCase())) : [];
+  const local = q ? [...savedMatches, ...generic].slice(0, 8) : [];
+  function pick(f: Food) { requestId.current++; onPick({ ...f, id: uid(), quantity: 1 }); setQuery(""); setProducts([]); setSearched(""); setGenericOnly(false); setBusy(false); }
+  async function search(nextPage = 1, nextStore = store, forceProducts = false) {
     if (q.length < 2) return;
+    if (nextPage === 1 && !nextStore && (generic.length || savedMatches.length) && !forceProducts) {
+      requestId.current++;
+      setProducts([]);
+      setSearched(q);
+      setGenericOnly(true);
+      setMore(false);
+      setError("");
+      setBusy(false);
+      return;
+    }
     const id = ++requestId.current; setBusy(true); setError("");
     try {
       const r = await api(`/api/foods?${new URLSearchParams({ q, store: nextStore, page: String(nextPage) })}`);
       if (id !== requestId.current) return;
       if (r.food) { pick(r.food); return; }
+      setGenericOnly(false);
       setProducts(current => nextPage === 1 ? r.products : [...current, ...r.products]);
       setSearched(q); setPage(nextPage); setMore(r.hasMore);
     } catch (e) { if (id === requestId.current) setError((e as Error).message); }
@@ -957,19 +971,20 @@ function FoodPicker({ onPick, unit, savedFoods = [], onLabel }: {
   return <div className="food-picker">
     <div className="product-search-row"><div className="search-input"><Search size={18} />
       <input aria-label="Search foods" type="search" autoComplete="off" enterKeyHint="search" placeholder="Food, brand or barcode" value={query}
-        onChange={e => { requestId.current++; setQuery(e.target.value); setProducts([]); setSearched(""); setError(""); setBusy(false); }}
+        onChange={e => { requestId.current++; setQuery(e.target.value); setProducts([]); setSearched(""); setGenericOnly(false); setError(""); setBusy(false); }}
         onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); search(); } }} />
       </div><button type="button" className="secondary" disabled={busy || q.length < 2} onClick={() => search()} aria-label="Search products"><Search size={18} /></button>
     </div>
     {local.length > 0 && <div className="suggestions">{local.map(f => <button type="button" key={f.id} onClick={() => pick(f)}><span><strong>{f.name}</strong><small>{f.source === "label" || f.source === "manual" ? "My food · " : ""}{f.serving} · {energy(f.kcal, unit)} {unit === "kcal" ? "cal" : "kJ"}</small></span><Plus size={17} /></button>)}</div>}
-    {searched && <label className="shop-filter">Shop<select aria-label="Filter products by shop" value={store} disabled={busy} onChange={e => { setStore(e.target.value); search(1, e.target.value); }}><option value="">All shops</option><option value="woolworths">Woolworths</option><option value="coles">Coles</option><option value="aldi">Aldi</option></select></label>}
+    {searched && genericOnly && <button type="button" className="text-button product-fallback" disabled={busy} onClick={() => search(1, "", true)}>Search packaged products instead</button>}
+    {searched && !genericOnly && <label className="shop-filter">Shop<select aria-label="Filter products by shop" value={store} disabled={busy} onChange={e => { setStore(e.target.value); search(1, e.target.value, true); }}><option value="">All shops</option><option value="woolworths">Woolworths</option><option value="coles">Coles</option><option value="aldi">Aldi</option></select></label>}
     {busy && <p className="hint" role="status">Looking up products…</p>}
     {error && <p className="error" role="alert">{error}</p>}
-    {searched && !busy && !products.length && <p className="hint">No matching products. Try the brand, barcode, or add its label.</p>}
+    {searched && !genericOnly && !busy && !products.length && <p className="hint">No matching products. Try the brand, barcode, or add its label.</p>}
     {products.length > 0 && <div className="suggestions">{products.map(p => <button type="button" key={p.code} disabled={busy} onClick={() => product(p.code)}><span><strong>{p.name}</strong><small>{[p.brand, p.pack].filter(Boolean).join(" · ")}</small></span><Plus size={17}/></button>)}</div>}
-    {more && searched && <button type="button" className="text-button" disabled={busy} onClick={() => search(page + 1)}>More products</button>}
-    {(searched || error) && <p className="source-note">Product data: <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> · <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>. Coverage varies; check the pack.</p>}
-    {(searched || error) && onLabel && <button type="button" className="text-button" onClick={onLabel}><Camera size={16}/> Add a missing product’s label</button>}
+    {more && searched && !genericOnly && <button type="button" className="text-button" disabled={busy} onClick={() => search(page + 1, store, true)}>More products</button>}
+    {((searched && !genericOnly) || error) && <p className="source-note">Product data: <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> · <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>. Coverage varies; check the pack.</p>}
+    {((searched && !genericOnly) || error) && onLabel && <button type="button" className="text-button" onClick={onLabel}><Camera size={16}/> Add a missing product’s label</button>}
   </div>;
 }
 function ItemEditor({

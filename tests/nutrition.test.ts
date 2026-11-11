@@ -47,6 +47,13 @@ test("Weet-Bix and spelling variants are searchable", () => {
   assert.equal(searchFoods("wee")[0].name, "Weet-Bix");
   assert.equal(searchFoods("museli")[0].name, "Muesli");
 });
+test("generic food search prioritises common intent over branded products", () => {
+  assert.equal(searchFoods("black coffee")[0].name, "Black coffee");
+  assert.equal(searchFoods("coffee")[0].name, "Black coffee");
+  assert.equal(searchFoods("coffee black")[0].name, "Black coffee");
+  assert.equal(searchFoods("black coffe")[0].name, "Black coffee");
+  assert.equal(searchFoods("boss coffee").length, 0);
+});
 test("targets reconcile and high protein is capped", () => {
   for (const proteinLevel of [0, 1, 2]) {
     const t = targets({ ...defaultProfile, proteinLevel });

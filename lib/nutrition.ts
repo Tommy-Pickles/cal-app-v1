@@ -369,6 +369,71 @@ export const foods: Food[] = [
     "🍓",
     "berries strawberry",
   ],
+  [
+    "black-coffee",
+    "Black coffee",
+    "1 mug · 250 ml",
+    0,
+    3,
+    0.3,
+    0,
+    0,
+    "☕",
+    "coffee black coffee long black americano coffe",
+  ],
+  [
+    "espresso",
+    "Espresso",
+    "1 shot · 30 ml",
+    0,
+    2,
+    0.1,
+    0,
+    0,
+    "☕",
+    "short black espresso coffee shot",
+  ],
+  [
+    "flat-white",
+    "Flat white",
+    "1 cup · 250 ml",
+    0,
+    120,
+    6.5,
+    10,
+    6,
+    "☕",
+    "flatwhite milk coffee",
+  ],
+  [
+    "latte",
+    "Caffè latte",
+    "1 cup · 250 ml",
+    0,
+    130,
+    6.5,
+    11,
+    6.5,
+    "☕",
+    "latte cafe latte milk coffee",
+  ],
+  [
+    "tea",
+    "Tea, black",
+    "1 mug · 250 ml",
+    0,
+    2,
+    0,
+    0.5,
+    0,
+    "🫖",
+    "black tea tea no milk",
+  ],
+  ["water", "Water", "1 glass · 250 ml", 0, 0, 0, 0, 0, "💧", "water glass tap water"],
+  ["orange", "Orange", "1 medium", 131, 62, 1.2, 15.4, 0.2, "🍊", "orange fruit"],
+  ["pear", "Pear", "1 medium", 178, 101, 0.6, 27, 0.3, "🍐", "pear fruit"],
+  ["carrot", "Carrot", "1 medium", 61, 25, 0.6, 6, 0.1, "🥕", "carrots raw"],
+  ["cucumber", "Cucumber", "1 cup", 104, 16, 0.7, 3.8, 0.1, "🥒", "cucumber raw"],
 ].map(
   ([id, name, serving, grams, kcal, protein, carbs, fat, emoji, aliases]) => ({
     id,
@@ -384,9 +449,24 @@ export const foods: Food[] = [
   }),
 ) as Food[];
 export function searchFoods(query: string) {
-  const q = query.trim().toLowerCase();
+  const q = query.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  if (!q) return [];
+  const words = q.split(/\s+/);
   return foods
-    .filter((f) => `${f.name} ${f.aliases}`.toLowerCase().includes(q))
+    .map((food) => {
+      const name = food.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+      const haystack = `${name} ${food.aliases}`.toLowerCase();
+      const score = name === q ? 100
+        : name.includes(q) ? 90
+          : words.every((word) => name.includes(word)) ? 85
+            : haystack.includes(q) ? 80
+              : words.every((word) => haystack.includes(word)) ? 60
+            : 0;
+      return { food, score };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || a.food.name.length - b.food.name.length)
+    .map(({ food }) => food)
     .slice(0, 8);
 }
 
