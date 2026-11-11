@@ -470,7 +470,7 @@ export function searchFoods(query: string) {
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score)
     .map(({ food }) => food)
-    .slice(0, 8);
+    .slice(0, 5);
 }
 
 export function validQuantity(value: number) {

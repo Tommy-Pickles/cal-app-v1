@@ -938,7 +938,7 @@ function FoodPicker({ onPick, unit, savedFoods = [], onLabel }: {
   const q = query.trim();
   const generic = q ? searchFoods(q) : [];
   const savedMatches = q ? savedFoods.filter(f => `${f.name} ${f.brand || ""} ${f.barcode || ""}`.toLowerCase().includes(q.toLowerCase())) : [];
-  const local = q ? [...savedMatches, ...generic, ...remoteGeneric].slice(0, 8) : [];
+  const local = q ? [...savedMatches, ...generic, ...remoteGeneric].slice(0, 5) : [];
   function pick(f: Food) { requestId.current++; onPick({ ...f, id: uid(), quantity: 1 }); setQuery(""); setProducts([]); setRemoteGeneric([]); setSearched(""); setGenericOnly(false); setBusy(false); }
   async function search(nextPage = 1, nextStore = store, forceProducts = false) {
     if (q.length < 2) return;

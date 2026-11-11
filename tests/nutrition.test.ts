@@ -70,6 +70,17 @@ test("AUSNUT expands Australian generic search while curated matches stay first"
   assert.equal(searchFoods("black coffee")[0].id, "black-coffee");
   assert.ok(searchAusnutFoods("pancake").length > 0);
 });
+test("broad AUSNUT searches stay concise and rank direct names first", () => {
+  for (const query of ["rice", "apple", "salad", "pancake", "yoghurt"]) {
+    const results = searchAusnutFoods(query);
+    assert.ok(results.length <= 5);
+    assert.ok(results.length > 0);
+  }
+  assert.match(searchAusnutFoods("rice")[0].name, /^Rice[ ,]/i);
+  assert.match(searchAusnutFoods("apple")[0].name, /^Apple[ ,]/i);
+  assert.match(searchAusnutFoods("salad")[0].name, /^Salad[ ,]/i);
+  assert.match(searchAusnutFoods("pancake")[0].name, /plain.*homemade/i);
+});
 test("targets reconcile and high protein is capped", () => {
   for (const proteinLevel of [0, 1, 2]) {
     const t = targets({ ...defaultProfile, proteinLevel });

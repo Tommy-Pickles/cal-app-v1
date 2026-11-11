@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       const fields = "code,product_name,product_name_en,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit,product_quantity,product_quantity_unit,quantity,nutrition_data_per,categories_tags";
       url = `https://world.openfoodfacts.org/api/v3/product/${code}?fields=${fields}`;
     } else {
-      const p = new URLSearchParams({ q: productQuery(query, store), langs: "en", page_size: "20", page: String(page), fields: "code,product_name,brands,quantity" });
+      const p = new URLSearchParams({ q: productQuery(query, store), langs: "en", page_size: "6", page: String(page), fields: "code,product_name,brands,quantity" });
       url = `https://search.openfoodfacts.org/search?${p}`;
     }
     const response = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
