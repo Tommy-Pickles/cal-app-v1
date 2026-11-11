@@ -465,7 +465,7 @@ export function searchFoods(query: string) {
             : haystack.includes(q) ? 80
               : words.every((word) => haystack.includes(word)) ? 60
             : 0;
-      return { food, score };
+      return { food, score: score + (score > 0 ? 10 : 0) };
     })
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score)

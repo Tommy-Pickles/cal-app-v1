@@ -1,5 +1,6 @@
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { productFood, productQuery } from "../../../lib/product-foods";
+import { searchAusnutFoods } from "../../../lib/ausnut-search";
 
 const cache = new Map<string, { until: number; data: unknown }>();
 const recent = new Map<string, number[]>();
@@ -11,9 +12,11 @@ export async function GET(request: Request) {
   const query = (params.get("q") || "").trim().slice(0, 100);
   const code = params.get("code") || (/^\d{8,14}$/.test(query) ? query : "");
   const store = params.get("store") || "";
+  const generic = params.get("generic") === "1";
   const page = Math.min(10, Math.max(1, Math.floor(Number(params.get("page"))) || 1));
   if ((code && !/^\d{8,14}$/.test(code)) || (!code && query.length < 2))
     return Response.json({ error: "Enter a product name or an 8–14 digit barcode." }, { status: 400 });
+  if (generic) return Response.json({ foods: searchAusnutFoods(query) });
   const key = JSON.stringify([code, query.toLowerCase(), store, page]);
   const cached = cache.get(key);
   if (cached && cached.until > Date.now()) return Response.json(cached.data);

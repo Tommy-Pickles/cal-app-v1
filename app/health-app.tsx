@@ -639,6 +639,7 @@ export default function HealthApp() {
               option is optional, not a promise of better results.
             </p>
             <h3>Product data</h3>
+            <p>Generic food search includes <a href="https://www.foodstandards.gov.au/science-data/food-nutrient-databases/ausnut" target="_blank" rel="noreferrer">AUSNUT 2023</a> data from Food Standards Australia New Zealand, converted for this app under the <a href="https://www.foodstandards.gov.au/science-data/monitoringnutrients/afcd/datauserlicenceagreement" target="_blank" rel="noreferrer">FSANZ data licence</a>. Values are Australian averages and may vary between batches and brands; they may not be appropriate in other countries.</p>
             <p>Supermarket search uses community-contributed <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> data under the <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">Open Database License</a>. Coverage and accuracy vary. Check the pack, or upload its nutrition label.</p>
             <h3>Food values are estimates</h3>
             <p>
@@ -931,16 +932,17 @@ function FoodPicker({ onPick, unit, savedFoods = [], onLabel }: {
   const [query, setQuery] = useState(""), [products, setProducts] = useState<any[]>([]),
     [store, setStore] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""),
     [searched, setSearched] = useState(""), [page, setPage] = useState(1), [more, setMore] = useState(false),
-    [genericOnly, setGenericOnly] = useState(false);
+    [genericOnly, setGenericOnly] = useState(false), [remoteGeneric, setRemoteGeneric] = useState<Food[]>([]);
   const requestId = useRef(0);
   useEffect(() => () => { requestId.current++; }, []);
   const q = query.trim();
   const generic = q ? searchFoods(q) : [];
   const savedMatches = q ? savedFoods.filter(f => `${f.name} ${f.brand || ""} ${f.barcode || ""}`.toLowerCase().includes(q.toLowerCase())) : [];
-  const local = q ? [...savedMatches, ...generic].slice(0, 8) : [];
-  function pick(f: Food) { requestId.current++; onPick({ ...f, id: uid(), quantity: 1 }); setQuery(""); setProducts([]); setSearched(""); setGenericOnly(false); setBusy(false); }
+  const local = q ? [...savedMatches, ...generic, ...remoteGeneric].slice(0, 8) : [];
+  function pick(f: Food) { requestId.current++; onPick({ ...f, id: uid(), quantity: 1 }); setQuery(""); setProducts([]); setRemoteGeneric([]); setSearched(""); setGenericOnly(false); setBusy(false); }
   async function search(nextPage = 1, nextStore = store, forceProducts = false) {
     if (q.length < 2) return;
+    if (forceProducts) setRemoteGeneric([]);
     if (nextPage === 1 && !nextStore && (generic.length || savedMatches.length) && !forceProducts) {
       requestId.current++;
       setProducts([]);
@@ -953,9 +955,22 @@ function FoodPicker({ onPick, unit, savedFoods = [], onLabel }: {
     }
     const id = ++requestId.current; setBusy(true); setError("");
     try {
+      if (nextPage === 1 && !nextStore && !forceProducts) {
+        const genericResponse = await api(`/api/foods?${new URLSearchParams({ q, generic: "1" })}`);
+        if (id !== requestId.current) return;
+        if (genericResponse.foods?.length) {
+          setRemoteGeneric(genericResponse.foods);
+          setProducts([]);
+          setSearched(q);
+          setGenericOnly(true);
+          setMore(false);
+          return;
+        }
+      }
       const r = await api(`/api/foods?${new URLSearchParams({ q, store: nextStore, page: String(nextPage) })}`);
       if (id !== requestId.current) return;
       if (r.food) { pick(r.food); return; }
+      setRemoteGeneric([]);
       setGenericOnly(false);
       setProducts(current => nextPage === 1 ? r.products : [...current, ...r.products]);
       setSearched(q); setPage(nextPage); setMore(r.hasMore);
@@ -971,7 +986,7 @@ function FoodPicker({ onPick, unit, savedFoods = [], onLabel }: {
   return <div className="food-picker">
     <div className="product-search-row"><div className="search-input"><Search size={18} />
       <input aria-label="Search foods" type="search" autoComplete="off" enterKeyHint="search" placeholder="Food, brand or barcode" value={query}
-        onChange={e => { requestId.current++; setQuery(e.target.value); setProducts([]); setSearched(""); setGenericOnly(false); setError(""); setBusy(false); }}
+        onChange={e => { requestId.current++; setQuery(e.target.value); setProducts([]); setRemoteGeneric([]); setSearched(""); setGenericOnly(false); setError(""); setBusy(false); }}
         onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); search(); } }} />
       </div><button type="button" className="secondary" disabled={busy || q.length < 2} onClick={() => search()} aria-label="Search products"><Search size={18} /></button>
     </div>

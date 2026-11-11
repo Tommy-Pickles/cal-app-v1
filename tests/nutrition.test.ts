@@ -10,6 +10,7 @@ import {
   localDate,
   foods,
 } from "../lib/nutrition.ts";
+import { ausnutFoodCount, searchAusnutFoods } from "../lib/ausnut-search.ts";
 const ingredient = {
   id: "1",
   name: "Test ingredient",
@@ -62,6 +63,12 @@ test("common catalogue is broad and distinguishes mince fat levels", () => {
   assert.match(searchFoods("beef mince 20%")[0].name, /20% fat/);
   assert.equal(searchFoods("scotch fillet")[0].name, "Beef scotch fillet, cooked");
   assert.ok(searchFoods("mince").some((food) => food.name.includes("5% fat")));
+});
+test("AUSNUT expands Australian generic search while curated matches stay first", () => {
+  assert.equal(ausnutFoodCount, 3741);
+  assert.ok(searchAusnutFoods("lamington").some((food) => /lamington/i.test(food.name)));
+  assert.equal(searchFoods("black coffee")[0].id, "black-coffee");
+  assert.ok(searchAusnutFoods("pancake").length > 0);
 });
 test("targets reconcile and high protein is capped", () => {
   for (const proteinLevel of [0, 1, 2]) {
