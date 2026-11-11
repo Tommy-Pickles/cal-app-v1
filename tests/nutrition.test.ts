@@ -8,6 +8,7 @@ import {
   energy,
   searchFoods,
   localDate,
+  foods,
 } from "../lib/nutrition.ts";
 const ingredient = {
   id: "1",
@@ -53,6 +54,14 @@ test("generic food search prioritises common intent over branded products", () =
   assert.equal(searchFoods("coffee black")[0].name, "Black coffee");
   assert.equal(searchFoods("black coffe")[0].name, "Black coffee");
   assert.equal(searchFoods("boss coffee").length, 0);
+});
+test("common catalogue is broad and distinguishes mince fat levels", () => {
+  assert.ok(foods.length >= 230);
+  assert.equal(new Set(foods.map((food) => food.id)).size, foods.length);
+  assert.match(searchFoods("beef mince 5%")[0].name, /5% fat/);
+  assert.match(searchFoods("beef mince 20%")[0].name, /20% fat/);
+  assert.equal(searchFoods("scotch fillet")[0].name, "Beef scotch fillet, cooked");
+  assert.ok(searchFoods("mince").some((food) => food.name.includes("5% fat")));
 });
 test("targets reconcile and high protein is capped", () => {
   for (const proteinLevel of [0, 1, 2]) {

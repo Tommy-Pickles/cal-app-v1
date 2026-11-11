@@ -1,3 +1,5 @@
+import { commonFoods } from "./common-foods.ts";
+
 export type Macros = {
   kcal: number;
   protein: number;
@@ -434,6 +436,7 @@ export const foods: Food[] = [
   ["pear", "Pear", "1 medium", 178, 101, 0.6, 27, 0.3, "🍐", "pear fruit"],
   ["carrot", "Carrot", "1 medium", 61, 25, 0.6, 6, 0.1, "🥕", "carrots raw"],
   ["cucumber", "Cucumber", "1 cup", 104, 16, 0.7, 3.8, 0.1, "🥒", "cucumber raw"],
+  ...commonFoods,
 ].map(
   ([id, name, serving, grams, kcal, protein, carbs, fat, emoji, aliases]) => ({
     id,
@@ -465,7 +468,7 @@ export function searchFoods(query: string) {
       return { food, score };
     })
     .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score || a.food.name.length - b.food.name.length)
+    .sort((a, b) => b.score - a.score)
     .map(({ food }) => food)
     .slice(0, 8);
 }
