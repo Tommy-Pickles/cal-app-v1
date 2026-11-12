@@ -4,6 +4,7 @@ import {
   total,
   recipeItem,
   targets,
+  targetCalories,
   defaultProfile,
   energy,
   searchFoods,
@@ -95,6 +96,27 @@ test("targets reconcile and high protein is capped", () => {
     proteinLevel: 2,
   });
   assert.ok(t.protein <= 158);
+});
+test("weekly weight-change pace drives the calorie target", () => {
+  const gain = targetCalories({
+    ...defaultProfile,
+    goal: "gain",
+    weeklyChangeKg: 0.25,
+  });
+  const lose = targetCalories({
+    ...defaultProfile,
+    goal: "lose",
+    weeklyChangeKg: 0.25,
+  });
+  assert.equal(gain - lose, 550);
+  assert.ok(
+    targetCalories({ ...defaultProfile, goal: "lose", weeklyChangeKg: 1 }) >=
+      1200,
+  );
+  assert.equal(
+    targetCalories({ ...defaultProfile, goal: "lose", weeklyChangeKg: undefined }),
+    targetCalories({ ...defaultProfile, goal: "lose", weeklyChangeKg: 0.5 }),
+  );
 });
 test("day keys use calendar date in local timezone", () =>
   assert.equal(localDate(new Date(2026, 10, 7, 0, 1)), "2026-11-07"));

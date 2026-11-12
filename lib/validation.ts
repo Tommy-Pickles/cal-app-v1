@@ -29,6 +29,7 @@ export const stateSchema = z.object({
       activity: z.number().min(1.2).max(1.9),
       sex: z.enum(["male", "female", "average"]),
       proteinLevel: z.number().int().min(0).max(2),
+      weeklyChangeKg: z.number().min(0.1).max(1).optional(),
       calories: z
         .number()
         .min(0)

@@ -29,6 +29,7 @@ export type Profile = {
   sex: "male" | "female" | "average";
   proteinLevel: number;
   calories: number;
+  weeklyChangeKg?: number;
 };
 export type Meal = {
   id: string;
@@ -83,7 +84,16 @@ export const defaultProfile: Profile = {
   sex: "average",
   proteinLevel: 1,
   calories: 0,
+  weeklyChangeKg: 0.25,
 };
+export function defaultWeeklyChange(goal: Profile["goal"]) {
+  return goal === "gain" ? 0.25 : 0.5;
+}
+export function dailyCalorieAdjustment(p: Profile) {
+  const weeklyChange = p.weeklyChangeKg ?? defaultWeeklyChange(p.goal);
+  const dailyKcal = (weeklyChange * 7700) / 7;
+  return p.goal === "gain" ? dailyKcal : -dailyKcal;
+}
 export function targetCalories(p: Profile) {
   const bmr =
     10 * p.weight +
@@ -92,7 +102,7 @@ export function targetCalories(p: Profile) {
     (p.sex === "male" ? 5 : p.sex === "female" ? -161 : -78);
   return Math.max(
     1200,
-    Math.round((bmr * p.activity * (p.goal === "gain" ? 1.1 : 0.85)) / 10) * 10,
+    Math.round((bmr * p.activity + dailyCalorieAdjustment(p)) / 10) * 10,
   );
 }
 export function targets(p: Profile): Macros {

@@ -24,7 +24,9 @@ import {
 } from "lucide-react";
 import {
   categories,
+  dailyCalorieAdjustment,
   defaultProfile,
+  defaultWeeklyChange,
   emptyState,
   energy,
   localDate,
@@ -637,8 +639,9 @@ export default function HealthApp() {
             <h3>Target calculation</h3>
             <p>
               Energy uses the Mifflin–St Jeor estimate, your activity level, and
-              a 10% surplus or 15% deficit, with a 1,200 cal minimum for
-              automatic targets. The “average” equation averages the two sex
+              your chosen weekly weight-change pace, using roughly 7,700 cal
+              per kilogram, with a 1,200 cal minimum for automatic targets. The
+              “average” equation averages the two sex
               constants. Targets are intended for adults and can be adjusted.
             </p>
             <p>
@@ -751,7 +754,11 @@ function ProfileForm({
   saving: boolean;
   onSave: (p: Profile) => void;
 }) {
-  const [p, setP] = useState(initial);
+  const [p, setP] = useState({
+    ...initial,
+    weeklyChangeKg:
+      initial.weeklyChangeKg ?? defaultWeeklyChange(initial.goal),
+  });
   const update = (key: keyof Profile, value: any) =>
     setP({ ...p, [key]: value });
   const t = targets(p);
@@ -796,13 +803,31 @@ function ProfileForm({
             type="button"
             key={g.id}
             className={"choice " + (p.goal === g.id ? "chosen" : "")}
-            onClick={() => update("goal", g.id)}
+            onClick={() =>
+              setP({
+                ...p,
+                goal: g.id as Profile["goal"],
+                weeklyChangeKg: defaultWeeklyChange(g.id as Profile["goal"]),
+              })
+            }
           >
             <strong>{g.title}</strong>
             <small>{g.sub}</small>
           </button>
         ))}
       </div>
+      <label>
+        {p.goal === "gain" ? "Gain per week (kg)" : "Lose per week (kg)"}
+        <input
+          required
+          type="number"
+          min="0.1"
+          max="1"
+          step="0.05"
+          value={p.weeklyChangeKg}
+          onChange={(e) => update("weeklyChangeKg", +e.target.value)}
+        />
+      </label>
       <div className="form-grid three">
         <label>
           Weight (kg)
@@ -893,6 +918,11 @@ function ProfileForm({
           <strong>{t.kcal.toLocaleString()} cal / day</strong>
           <small>
             {t.protein}g protein · {t.carbs}g carbs · {t.fat}g fat
+          </small>
+          <small>
+            {p.calories > 0
+              ? "Custom calorie target"
+              : `${Math.abs(dailyCalorieAdjustment(p)).toLocaleString()} cal/day ${p.goal === "gain" ? "surplus" : "deficit"} for ${p.weeklyChangeKg} kg/week`}
           </small>
         </div>
       </div>
