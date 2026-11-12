@@ -1,4 +1,4 @@
-import { getChatGPTUser } from "../../chatgpt-auth";
+import { getSupabaseUser } from "../../../lib/supabase/server";
 import { productFood, productQuery } from "../../../lib/product-foods";
 import { searchAusnutFoods } from "../../../lib/ausnut-search";
 
@@ -6,7 +6,7 @@ const cache = new Map<string, { until: number; data: unknown }>();
 const recent = new Map<string, number[]>();
 const headers = { "User-Agent": "HawkesHealthHelper/1.0 (https://github.com/Tommy-Pickles/cal-app-v1)", Accept: "application/json" };
 export async function GET(request: Request) {
-  const user = await getChatGPTUser();
+  const user = await getSupabaseUser();
   if (!user) return Response.json({ error: "Please sign in." }, { status: 401 });
   const params = new URL(request.url).searchParams;
   const query = (params.get("q") || "").trim().slice(0, 100);
@@ -20,10 +20,10 @@ export async function GET(request: Request) {
   const key = JSON.stringify([code, query.toLowerCase(), store, page]);
   const cached = cache.get(key);
   if (cached && cached.until > Date.now()) return Response.json(cached.data);
-  const calls = (recent.get(user.userId) || []).filter(t => t > Date.now() - 60000);
+  const calls = (recent.get(user.id) || []).filter(t => t > Date.now() - 60000);
   if (calls.length >= 8) return Response.json({ error: "Please wait a minute before another product search." }, { status: 429 });
   if (recent.size > 500) recent.clear();
-  recent.set(user.userId, [...calls, Date.now()]);
+  recent.set(user.id, [...calls, Date.now()]);
   try {
     let url: string;
     if (code) {

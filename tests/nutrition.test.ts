@@ -11,6 +11,7 @@ import {
   foods,
 } from "../lib/nutrition.ts";
 import { ausnutFoodCount, searchAusnutFoods } from "../lib/ausnut-search.ts";
+import { normalizeLoginIdentifier } from "../lib/auth.ts";
 const ingredient = {
   id: "1",
   name: "Test ingredient",
@@ -159,4 +160,20 @@ test("recipe serving descriptions do not repeat their gram weight", async () => 
     }),
     "1 serving · 300 g",
   );
+});
+
+test("login accepts email and normalises Australian mobile numbers", () => {
+  assert.deepEqual(normalizeLoginIdentifier(" Test@Example.com "), {
+    kind: "email",
+    value: "test@example.com",
+  });
+  assert.deepEqual(normalizeLoginIdentifier("0412 345 678"), {
+    kind: "phone",
+    value: "+61412345678",
+  });
+  assert.deepEqual(normalizeLoginIdentifier("61 412 345 678"), {
+    kind: "phone",
+    value: "+61412345678",
+  });
+  assert.equal(normalizeLoginIdentifier("not an account"), null);
 });

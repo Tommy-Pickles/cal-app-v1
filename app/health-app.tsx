@@ -108,6 +108,16 @@ export default function HealthApp() {
     setMode(m);
     setModal("food");
   }
+  async function signOut() {
+    setSaving(true);
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+      window.location.replace("/");
+    } catch (cause) {
+      setError((cause as Error).message);
+      setSaving(false);
+    }
+  }
   const goal = data.profile ? targets(data.profile) : targets(defaultProfile);
   const entries = data.entries.filter((e) => e.date === date);
   const consumed = total(entries.flatMap((e) => e.items));
@@ -528,9 +538,7 @@ export default function HealthApp() {
               <span>Data & nutrition information</span>
               <ChevronRight size={18} />
             </button>
-            <a href="/signout-with-chatgpt?return_to=%2F" target="_top">
-              Sign out
-            </a>
+            <button onClick={signOut} disabled={saving}>Sign out</button>
           </div>
         </Modal>
       )}
@@ -670,9 +678,7 @@ export default function HealthApp() {
             >
               <Download size={16} /> Export my diary
             </button>
-            <a href="/signout-with-chatgpt?return_to=%2F" target="_top">
-              Sign out
-            </a>
+            <button className="secondary" onClick={signOut} disabled={saving}>Sign out</button>
           </div>
         </Modal>
       )}

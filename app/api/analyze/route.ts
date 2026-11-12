@@ -1,13 +1,13 @@
-import { env } from "cloudflare:workers";
-import { getChatGPTUser } from "../../chatgpt-auth";
+import { getSupabaseUser } from "../../../lib/supabase/server";
 import { itemSchema } from "../../../lib/validation";
 import { z } from "zod";
 export async function POST(request: Request) {
-  if (!(await getChatGPTUser()))
+  if (!(await getSupabaseUser()))
     return Response.json({ error: "Please sign in." }, { status: 401 });
   if (request.headers.get("origin") !== new URL(request.url).origin)
     return Response.json({ error: "Invalid origin." }, { status: 403 });
-  if (!env.OPENAI_API_KEY)
+  const openAIKey = process.env.OPENAI_API_KEY;
+  if (!openAIKey)
     return Response.json(
       {
         error:
@@ -64,18 +64,18 @@ export async function POST(request: Request) {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${openAIKey}`,
         "Content-Type": "application/json",
-        ...(env.OPENAI_ORGANIZATION
-          ? { "OpenAI-Organization": env.OPENAI_ORGANIZATION }
+        ...(process.env.OPENAI_ORGANIZATION
+          ? { "OpenAI-Organization": process.env.OPENAI_ORGANIZATION }
           : {}),
-        ...(env.OPENAI_PROJECT
-          ? { "OpenAI-Project": env.OPENAI_PROJECT }
+        ...(process.env.OPENAI_PROJECT
+          ? { "OpenAI-Project": process.env.OPENAI_PROJECT }
           : {}),
       },
       signal: AbortSignal.timeout(45000),
       body: JSON.stringify({
-        model: env.OPENAI_MODEL || "gpt-5.6-terra",
+        model: process.env.OPENAI_MODEL || "gpt-5.6-terra",
         store: false,
         reasoning: { effort: "low" },
         max_output_tokens: 4000,
