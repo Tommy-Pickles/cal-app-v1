@@ -106,6 +106,13 @@ export default function HealthApp() {
       setSaving(false);
     }
   }
+  async function changeEnergyUnit(unit: State["unit"]) {
+    if (unit === data.unit || lock.current) return;
+    const previous = data;
+    const next = { ...data, unit };
+    setData(next);
+    if (!(await commit(next))) setData(previous);
+  }
   function openFood(m = "type") {
     setMode(m);
     setModal("food");
@@ -287,7 +294,7 @@ export default function HealthApp() {
                           key={u}
                           className={data.unit === u ? "active" : ""}
                           disabled={saving}
-                          onClick={() => commit({ ...data, unit: u })}
+                          onClick={() => changeEnergyUnit(u)}
                         >
                           {u === "kcal" ? "cal" : u}
                         </button>
